@@ -21,17 +21,17 @@ def send(config):
     driver.start(config.OPT_PORT)
 
     driver.send_text(config.OPT_TEXT)
-    driver.debug_read()
+    driver.stop()
 
 
 def test_cancel_feature(config):
     driver = morse_driver.MorseDriver()
     driver.start(config.OPT_PORT)
 
-    driver.send_text('hello world')
+    driver.send_text('one two')
     time.sleep(1.0)
     driver.send_text('sos')
-    driver.debug_read()
+    driver.stop()
 
 
 def parse_args(args):

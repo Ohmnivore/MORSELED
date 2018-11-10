@@ -73,6 +73,7 @@ const morse_pattern MORSE_ALPHABET[] = {
 const morse_letter MORSE_EXT_WHITESPACE = 36;
 const morse_letter MORSE_EXT_END = 37;
 const morse_letter MORSE_EXT_CANCEL = 38;
+const morse_letter MORSE_EXT_POLL = 39;
 
 bool letterIsInAlphabet(morse_letter letter) {
   return letter >= 0 && letter < MORSE_EXT_WHITESPACE;
@@ -88,6 +89,10 @@ bool letterIsEnd(morse_letter letter) {
 
 bool letterIsCancel(morse_letter letter) {
   return letter == MORSE_EXT_CANCEL;
+}
+
+bool letterIsPoll(morse_letter letter) {
+  return letter == MORSE_EXT_POLL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -157,6 +162,7 @@ private:
 const byte PIN_LED = 11;
 const byte PIN_BUZZER = 12;
 CircularBuffer<16, morse_letter> incoming;
+bool notify = false;
 
 void morseON() {
   digitalWrite(PIN_LED, HIGH);
@@ -200,7 +206,7 @@ void setup() {
 void loop() {
 //  serialTest();
   
-  if (Serial.available() > 0) {
+  while (Serial.available() > 0) {
     byte in = Serial.read();
     morse_letter converted = static_cast<morse_letter>(in);
 
@@ -209,16 +215,17 @@ void loop() {
       morseOFF();
       incoming.clear();
     }
+    else if (letterIsPoll(converted)) {
+      notify = true;
+    }
     else {
       incoming.push(in);
     }
   }
 
-  if (Serial.availableForWrite() > 0) {
-    // Request more if free space if we can store it
-    if (incoming.getFreeCount() >= 8) {
-      Serial.write(incoming.getFreeCount());
-    }
+  if (notify && (incoming.getFreeCount() >= 6)) {
+    Serial.write(incoming.getFreeCount());
+    notify = false;
   }
   
   if (incoming.getCount() >= 2) {
@@ -281,7 +288,7 @@ void loop() {
     morseOFF();
   }
 
-  // Nothing we're doing is urgent, we can let the CPU breathe
+  // Nothing we're doing is urgent, let the CPU breathe
   delay(4);
 }
 ///////////////////////////////////////////////////////////////////////////////
