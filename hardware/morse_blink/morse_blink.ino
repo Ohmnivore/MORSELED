@@ -70,26 +70,84 @@ const morse_pattern MORSE_ALPHABET[] = {
   MORSE_LETTER_4, MORSE_LETTER_5, MORSE_LETTER_6, MORSE_LETTER_7,
   MORSE_LETTER_8, MORSE_LETTER_9
 };
-const morse_letter MORSE_WHITESPACE = 36;
+const morse_letter MORSE_EXT_WHITESPACE = 36;
+const morse_letter MORSE_EXT_END = 37;
+const morse_letter MORSE_EXT_CANCEL = 38;
 
 bool letterIsInAlphabet(morse_letter letter) {
-  return letter >= 0 && letter < MORSE_WHITESPACE;
+  return letter >= 0 && letter < MORSE_EXT_WHITESPACE;
 }
 
 bool letterIsWhitespace(morse_letter letter) {
-  return letter == MORSE_WHITESPACE;
+  return letter == MORSE_EXT_WHITESPACE;
+}
+
+bool letterIsEnd(morse_letter letter) {
+  return letter == MORSE_EXT_END;
+}
+
+bool letterIsCancel(morse_letter letter) {
+  return letter == MORSE_EXT_CANCEL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 
-//template <int CAPACITY, typename T>
-//struct CircularBuffer {
-//  int capacity = CAPACITY;
-//  T buff[SIZE];
-//
-//  
-//};
+template <int CAPACITY, typename T>
+struct CircularBuffer {
+
+  void clear() {
+    count = 0;
+    head = 0;
+    tail = 0;
+  }
+
+  T pop() {
+    T cop = buff[tail];
+    tail++;
+    tail = tail % capacity;
+    count--;
+    
+    return cop;
+  }
+
+  T peek() {
+    return buff[tail];
+  }
+
+  void push(T e) {
+    buff[head] = e;
+    
+    head++;
+    head = head % capacity;
+    count++;
+  }
+
+  int getCapacity() {
+    return capacity;
+  }
+
+  int getCount() {
+    return count;
+  }
+
+  int getFreeCount() {
+    return capacity - count;
+  }
+
+  bool isEmpty() {
+    return count == 0;
+  }
+
+private:
+
+  int capacity = CAPACITY;
+  int count = 0;
+  T buff[CAPACITY];
+
+  int head = 0;
+  int tail = 0;
+};
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,9 +156,7 @@ bool letterIsWhitespace(morse_letter letter) {
 // Config
 const byte PIN_LED = 11;
 const byte PIN_BUZZER = 12;
-const int BUFFER_SIZE = 3;
-morse_letter BUFFER[BUFFER_SIZE] = {18, 14, 18};
-int curCharIdx = 0;
+CircularBuffer<32, morse_letter> incoming;
 
 void morseON() {
   digitalWrite(PIN_LED, HIGH);
@@ -112,25 +168,53 @@ void morseOFF() {
   noTone(PIN_BUZZER);
 }
 
+// For debugging
+void serialTest() {
+  //Serial.println("Hello!");
+
+  if (Serial.available() > 0) {
+    byte in = Serial.read();
+    Serial.println(in);
+  }
+}
+
+// For debugging
+void populateTestText() {
+  // Translates to SOS
+  incoming.push(18);
+  incoming.push(14);
+  incoming.push(18);
+  incoming.push(MORSE_EXT_END);
+}
+
 void setup() {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
 
   Serial.begin(9600);
+
+//  populateTestText();
 }
 
 void loop() {
-  if (curCharIdx < BUFFER_SIZE) {
-    const morse_letter curChar = BUFFER[curCharIdx];
+//  serialTest();
+  
+  if (Serial.available() > 0) {
+    byte in = Serial.read();
+    incoming.push(in);
+  }
+  
+  if (incoming.getCount() >= 2) {
+    const morse_letter letter = incoming.pop();
 
     // Whitespace (word separator)
-    if (letterIsWhitespace(curChar)) {
+    if (letterIsWhitespace(letter)) {
       morseOFF();
       delay(MORSE_WORD_SEP);
     }
     // Letter
-    else if (letterIsInAlphabet(curChar)) {
-      morse_pattern patternScratchPad = MORSE_ALPHABET[curChar];
+    else if (letterIsInAlphabet(letter)) {
+      morse_pattern patternScratchPad = MORSE_ALPHABET[letter];
 //      Serial.println(patternScratchPad, BIN);
 
       // Remove padding and leading 1 from the pattern
@@ -165,15 +249,19 @@ void loop() {
         }
       }
     }
+    // Cancel everything and empty the buffer
+    else if (letterIsCancel(letter)) {
+      morseOFF();
+      incoming.clear();
+      return;
+    }
     // Invalid range, ignore
     else {
       
     }
-    
-    curCharIdx++;
 
     // If we transitioned from a letter to another letter
-    const morse_letter nextChar = BUFFER[curCharIdx];
+    const morse_letter nextChar = incoming.peek();
     if (letterIsInAlphabet(nextChar)) {
       morseOFF();
       delay(MORSE_LETTER_SEP);
