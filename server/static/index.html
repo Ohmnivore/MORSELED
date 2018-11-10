@@ -1,0 +1,20 @@
+<head>
+</head>
+
+<body>
+<script>
+function send() {
+    var textToSend = document.getElementById("text").value;
+
+    var req = new XMLHttpRequest();
+    req.open("POST", '/send', true);
+    req.setRequestHeader("Content-Type", "application/json");
+    req.send(JSON.stringify({
+        text: textToSend
+    }));
+}
+</script>
+
+    <textarea id="text"></textarea>
+    <button onclick="send()">Send</button>
+</body>
