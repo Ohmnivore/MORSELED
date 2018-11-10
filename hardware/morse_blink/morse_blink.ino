@@ -156,7 +156,7 @@ private:
 // Config
 const byte PIN_LED = 11;
 const byte PIN_BUZZER = 12;
-CircularBuffer<32, morse_letter> incoming;
+CircularBuffer<16, morse_letter> incoming;
 
 void morseON() {
   digitalWrite(PIN_LED, HIGH);
@@ -208,10 +208,16 @@ void loop() {
     if (letterIsCancel(converted)) {
       morseOFF();
       incoming.clear();
-      Serial.println("cleared");
     }
     else {
       incoming.push(in);
+    }
+  }
+
+  if (Serial.availableForWrite() > 0) {
+    // Request more if free space if we can store it
+    if (incoming.getFreeCount() >= 8) {
+      Serial.write(incoming.getFreeCount());
     }
   }
   
@@ -274,5 +280,8 @@ void loop() {
 
     morseOFF();
   }
+
+  // Nothing we're doing is urgent, we can let the CPU breathe
+  delay(4);
 }
 ///////////////////////////////////////////////////////////////////////////////

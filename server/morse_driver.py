@@ -18,7 +18,6 @@ class MorseDriver:
         self.connection = None
         pass
 
-    # Windows-only
     def start(self, port, baud_rate=9600, timeout=50):
         self.connection = serial.Serial(port, baud_rate, timeout=timeout)
         time.sleep(3.0) # Wait for the Arduino to reboot (usual behavior on serial connection)
@@ -54,8 +53,22 @@ class MorseDriver:
 
     def send_text(self, text):
         converted = self._convert_text(text)
-        print('sent: ' + str(converted))
-        self.connection.write(converted)
+        cur_offset = 0
+
+        while True:
+            request = self.connection.read(1)
+            amount = ord(request)
+
+            to_send = converted[cur_offset:cur_offset + amount]
+            cur_offset += amount
+
+            print('sent: ' + str(to_send))
+            self.connection.write(to_send)
+
+            if cur_offset >= len(converted):
+                break
+            else:
+                time.sleep(4.0)
 
     def debug_read(self):
         while True:
