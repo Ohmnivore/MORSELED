@@ -45,24 +45,24 @@ CHAR_DOT = '.'
 CHAR_DASH = '-'
 
 # Config
-OUT_LINE = 'const int MORSE_LETTER_{0}[] = {{ {1}, {2} }};'
+OUT_LINE = 'const morse_pattern MORSE_LETTER_{0} = 0b{1:08b};'
 OUT_DOT = 'MORSE_DOT'
 OUT_DASH = 'MORSE_DASH'
 
 for letter in alphabet:
     pattern = alphabet[letter]
-    out_pattern = ''
+
+    pattern_int = 1
 
     for char in pattern:
+        pattern_int <<= 1
+
         if char == CHAR_DOT:
-            out_pattern += OUT_DOT + ', '
+            pass
         elif char == CHAR_DASH:
-            out_pattern += OUT_DASH + ', '
+            pattern_int += 1
         else:
             raise Exception('Unknown character {0} in letter {1}'.format(char, letter))
 
-    # Strip trailing comma
-    out_pattern = out_pattern[:-2]
-
-    statement = OUT_LINE.format(letter, len(pattern), out_pattern)
+    statement = OUT_LINE.format(letter, pattern_int)
     print(statement)
