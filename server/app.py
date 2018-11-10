@@ -1,17 +1,32 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import json
+import os
+import signal
 
 import morse_driver
 
-
 app = Flask(__name__)
+driver = None
+
+@app.before_first_request
+def setup_driver():
+    driver = morse_driver.MorseDriver()
+
+    SERIAL_PORT_ENV = 'SERIAL_PORT'
+    if SERIAL_PORT_ENV not in os.environ or len(os.environ[SERIAL_PORT_ENV]) == 0:
+        print(SERIAL_PORT_ENV + ' environment variable is undefined. Shutting down...')
+        os.kill(os.getpid(), signal.SIGTERM)
+    serial_port = os.environ[SERIAL_PORT_ENV]
+
+    print('Using serial port: ' + serial_port)
+    driver.start(serial_port)
 
 
 @app.route('/')
-def hello_world():
+def index():
     return app.send_static_file('index.html')
 
 
 @app.route('/send', methods=['POST'])
 def send_text():
-    return 'Received: ' + request.json['text']
+    return jsonify(success=True)
