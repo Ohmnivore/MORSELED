@@ -191,6 +191,7 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
 
+  Serial.setTimeout(50);
   Serial.begin(9600);
 
 //  populateTestText();
@@ -201,7 +202,17 @@ void loop() {
   
   if (Serial.available() > 0) {
     byte in = Serial.read();
-    incoming.push(in);
+    morse_letter converted = static_cast<morse_letter>(in);
+
+    // Cancel everything and empty the buffer
+    if (letterIsCancel(converted)) {
+      morseOFF();
+      incoming.clear();
+      Serial.println("cleared");
+    }
+    else {
+      incoming.push(in);
+    }
   }
   
   if (incoming.getCount() >= 2) {
@@ -248,12 +259,6 @@ void loop() {
           delay(MORSE_SILENCE);
         }
       }
-    }
-    // Cancel everything and empty the buffer
-    else if (letterIsCancel(letter)) {
-      morseOFF();
-      incoming.clear();
-      return;
     }
     // Invalid range, ignore
     else {

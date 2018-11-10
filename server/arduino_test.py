@@ -31,6 +31,7 @@ def test_cancel_feature(config):
     driver.send_text('hello world')
     time.sleep(1.0)
     driver.send_text('sos')
+    driver.debug_read()
 
 
 def parse_args(args):
