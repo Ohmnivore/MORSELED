@@ -116,7 +116,7 @@ struct CircularBuffer {
     return cop;
   }
 
-  T peek() {
+  T peek() const {
     return buff[tail];
   }
 
@@ -128,20 +128,24 @@ struct CircularBuffer {
     count++;
   }
 
-  int getCapacity() {
+  int getCapacity() const {
     return capacity;
   }
 
-  int getCount() {
+  int getCount() const {
     return count;
   }
 
-  int getFreeCount() {
+  int getFreeCount() const {
     return capacity - count;
   }
 
-  bool isEmpty() {
+  bool isEmpty() const {
     return count == 0;
+  }
+
+  bool isFull() const {
+    return count == capacity;
   }
 
 private:
@@ -155,18 +159,57 @@ private:
 };
 
 
+typedef unsigned long timestamp;
+
+// The "on" field could be removed by using the alternating property of Morse code
+// (elements with an odd index in a sequence are "on", even are "off").
+// It could be used to save memory at the cost of code complexity.
+struct TimingRecord {
+
+  TimingRecord() {
+    
+  }
+
+  TimingRecord(timestamp stamp, bool on) {
+    this->stamp = stamp;
+    this->on = on;
+  }
+
+  void debugPrint() const {
+    Serial.println(stamp);
+    Serial.println(on);
+    Serial.println("");
+  }
+  
+  timestamp stamp;
+  bool on;
+};
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Main
+
+// Debug flags
+#define DEBUG_INITIAL_POPULATE 0      // Pushes 'SOS' to incoming buffer on init
+#define DEBUG_SERIAL_TEST_SEND 0      // Prints 'Hello!' every loop execution
+#define DEBUG_SERIAL_TEST_LOOPBACK 0  // Prints back received input every loop execution
+#define DEBUG_PLANNING 0              // Prints each timing record as soon it's computed (watch out - can add latencies of >100ms)
 
 // Config
 const byte PIN_LED = 11;
 const byte PIN_BUZZER = 12;
+const byte MAX_TIMING_RECORDS_PER_LETTER = 8;
+const byte MIN_DATA_CHUNK_SIZE = 8;
 CircularBuffer<16, morse_letter> incoming;
+CircularBuffer<32, TimingRecord> planned;
+
 bool notify = false;
+timestamp scheduleHead;
 
 void morseON() {
   digitalWrite(PIN_LED, HIGH);
-  tone(PIN_BUZZER, 500);
+  const int hertz = 500;
+  tone(PIN_BUZZER, hertz);
 }
 
 void morseOFF() {
@@ -174,14 +217,28 @@ void morseOFF() {
   noTone(PIN_BUZZER);
 }
 
+void schedule(bool on, unsigned long delay) {
+  TimingRecord rec = TimingRecord(scheduleHead, on);
+  planned.push(rec);
+  scheduleHead += delay;
+
+  #if DEBUG_PLANNING
+  rec.debugPrint();
+  #endif
+}
+
 // For debugging
 void serialTest() {
-  //Serial.println("Hello!");
+  #if DEBUG_SERIAL_TEST_SEND
+  Serial.println("Hello!");
+  #endif
 
+  #if DEBUG_SERIAL_TEST_LOOPBACK
   if (Serial.available() > 0) {
     byte in = Serial.read();
     Serial.println(in);
   }
+  #endif
 }
 
 // For debugging
@@ -197,44 +254,53 @@ void setup() {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
 
-  Serial.setTimeout(50);
+  Serial.setTimeout(1);
   Serial.begin(9600);
 
-//  populateTestText();
+  #if DEBUG_INITIAL_POPULATE
+  populateTestText();
+  #endif
 }
 
 void loop() {
-//  serialTest();
-  
-  while (Serial.available() > 0) {
-    byte in = Serial.read();
-    morse_letter converted = static_cast<morse_letter>(in);
+  #if DEBUG_SERIAL_TEST_SEND || DEBUG_SERIAL_TEST_LOOPBACK
+  serialTest();
+  #endif
 
-    // Cancel everything and empty the buffer
-    if (letterIsCancel(converted)) {
-      morseOFF();
-      incoming.clear();
-    }
-    else if (letterIsPoll(converted)) {
-      notify = true;
-    }
-    else {
-      incoming.push(in);
+
+  // Get current timestamp, adjust schedule if it's behind
+  timestamp currentTime = millis();
+  if (scheduleHead < currentTime)
+    scheduleHead = currentTime;
+
+
+  // Read schedule, change output status if necessary
+  if (!planned.isEmpty()) {
+    TimingRecord scheduled = planned.peek();
+
+    if (scheduled.stamp <= currentTime) {
+      if (scheduled.on) {
+        morseON();
+      }
+      else {
+        morseOFF();
+      }
+      
+      planned.pop();
     }
   }
 
-  if (notify && (incoming.getFreeCount() >= 6)) {
-    Serial.write(incoming.getFreeCount());
-    notify = false;
-  }
-  
-  if (incoming.getCount() >= 2) {
+
+  // Plan schedule:
+  // We need at least two letters in the buffer to distinguish
+  // letter->letter vs word->word contexts
+  // Also, MORSE_EXT_END exists to be used as a terminator for this reason
+  while (incoming.getCount() >= 2 && planned.getFreeCount() >= MAX_TIMING_RECORDS_PER_LETTER) {
     const morse_letter letter = incoming.pop();
 
     // Whitespace (word separator)
     if (letterIsWhitespace(letter)) {
-      morseOFF();
-      delay(MORSE_WORD_SEP);
+      schedule(false, MORSE_WORD_SEP);
     }
     // Letter
     else if (letterIsInAlphabet(letter)) {
@@ -256,20 +322,18 @@ void loop() {
 
       // For every bit in the pattern
       for (char componentIdx = 0; componentIdx < patternLength; ++componentIdx) {
-        morseON();
-
         // Check if dot or dash
         morse_timing timeON = MORSE_DASH;
         if ((patternScratchPad & (1 << 7)) == 0) {
           timeON = MORSE_DOT;
         }
         patternScratchPad <<= 1;
-        delay(timeON);
+
+        schedule(true, timeON);
 
         // If we're not dealing with the last bit of the pattern
         if (componentIdx < patternLength - 1) {
-          morseOFF();
-          delay(MORSE_SILENCE);
+          schedule(false, MORSE_SILENCE);
         }
       }
     }
@@ -281,14 +345,42 @@ void loop() {
     // If we transitioned from a letter to another letter
     const morse_letter nextChar = incoming.peek();
     if (letterIsInAlphabet(nextChar)) {
-      morseOFF();
-      delay(MORSE_LETTER_SEP);
+      schedule(false, MORSE_LETTER_SEP);
     }
+    else if (letterIsEnd(nextChar)) {
+      incoming.pop();
 
-    morseOFF();
+      // Treat as word separator
+      schedule(false, MORSE_WORD_SEP);
+    }
   }
 
-  // Nothing we're doing is urgent, let the CPU breathe
-  delay(4);
+
+  // Read input from driver
+  if (Serial.available() > 0) {
+    byte in = Serial.read();
+    morse_letter converted = static_cast<morse_letter>(in);
+
+    // Cancel everything and empty the buffer
+    if (letterIsCancel(converted)) {
+      morseOFF();
+      incoming.clear();
+      planned.clear();
+      scheduleHead = 0; // Will be set to current time when needed
+    }
+    else if (letterIsPoll(converted)) {
+      notify = true;
+    }
+    else {
+      incoming.push(in);
+    }
+  }
+
+
+  // Notify driver of free space in buffer
+  if (notify && (incoming.getFreeCount() >= MIN_DATA_CHUNK_SIZE)) {
+    Serial.write(incoming.getFreeCount());
+    notify = false;
+  }
 }
 ///////////////////////////////////////////////////////////////////////////////
