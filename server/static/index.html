@@ -17,6 +17,42 @@ function send() {
         text: textToSend
     }));
 }
+
+var titleCharIdx = 0;
+var titleBackup = ""
+var titleElement = null;
+var nonBreakingSpace = '\xa0';
+
+function revealTitle() {
+    if (titleCharIdx < titleBackup.length) {
+        var delaySeconds = 0.05 + Math.random() * 0.1;
+
+        setTimeout(function() {
+            if (titleCharIdx == 0) {
+                // Get rid of leading non-breaking space
+                titleElement.innerHTML = titleBackup[titleCharIdx];
+                titleElement.style.textDecoration = "underline";
+            }
+            else {
+                titleElement.innerHTML += titleBackup[titleCharIdx];
+            }
+
+            titleCharIdx++;
+            revealTitle();
+        }, Math.floor(delaySeconds * 1000.0));
+    }
+}
+
+window.onload = function() {
+    titleElement = document.getElementById("title");
+    titleBackup = titleElement.innerHTML;
+    // Prevents collapse of title block before we process the first character
+    titleElement.innerHTML = nonBreakingSpace;
+    titleElement.style.textDecoration = "none";
+
+    revealTitle();
+}
+
 </script>
 
     <div class="main-panel">
