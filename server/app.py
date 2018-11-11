@@ -37,5 +37,13 @@ def serve_static(path):
 def send_text():
     recvd = request.json['text']
     print('text received: ' + recvd)
-    driver.send_text(recvd)
-    return jsonify(success=True)
+
+    text = driver.sanitize_text(recvd)
+
+    if len(text) == 0:
+        response = jsonify(success=False, reason='Sanitized text has length 0')
+        response.status_code = 400
+        return response
+    else:
+        driver.send_text(text)
+        return jsonify(success=True)

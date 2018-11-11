@@ -58,7 +58,7 @@ class MorseDriver:
 
         print('stopped reading')
 
-    def _convert_text(self, text):
+    def sanitize_text(self, text):
         # Morse code doesn't have letter case
         temp = text.lower()
         # Replace all whitespace sequences by a space (Morse code doesn't have any other whitespace)
@@ -66,9 +66,25 @@ class MorseDriver:
         # Remove leading and trailing whitespace
         temp = temp.strip()
 
-        data = []
+        sanitized = ''
 
         for char in temp:
+            ascii_char = ord(char)
+
+            if ascii_char >= ASCII_A and ascii_char <= ASCII_Z:
+                sanitized += char
+            elif ascii_char >= ASCII_0 and ascii_char <= ASCII_9:
+                sanitized += char
+            elif char == ' ':
+                sanitized += char
+
+        return sanitized
+
+    # Make sure to call sanitize_text on parameter text
+    def _convert_text(self, text):
+        data = []
+
+        for char in text:
             ascii_char = ord(char)
 
             out = None
@@ -80,7 +96,9 @@ class MorseDriver:
             elif char == ' ':
                 out = MORSE_EXT_WHITESPACE
 
-            if out is not None:
+            if out is None:
+                raise Exception('Unsupported character "{0}"'.format(char))
+            else:
                 data.append(out)
 
         data.append(MORSE_EXT_END)

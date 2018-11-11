@@ -20,7 +20,12 @@ def send(config):
     driver = morse_driver.MorseDriver()
     driver.start(config.OPT_PORT)
 
-    driver.send_text(config.OPT_TEXT)
+    text = driver.sanitize_text(config.OPT_TEXT)
+    if len(text) == 0:
+        print('Sanitized text length is 0, exiting...')
+        exit(1)
+
+    driver.send_text(text)
     driver.stop()
 
 
@@ -28,9 +33,9 @@ def test_cancel_feature(config):
     driver = morse_driver.MorseDriver()
     driver.start(config.OPT_PORT)
 
-    driver.send_text('one two')
+    driver.send_text(driver.sanitize_text('one two'))
     time.sleep(1.0)
-    driver.send_text('sos')
+    driver.send_text(driver.sanitize_text('sos'))
     driver.stop()
 
 
