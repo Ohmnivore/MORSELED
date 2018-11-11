@@ -21,6 +21,8 @@ class MorseDriver:
         self._can_send = None
         self._read_thread = None
         self._free_slots = 0
+        self._write_lock = None
+        self._write_thread_id = 0
 
     def start(self, port, baud_rate=9600, timeout=0):
         self.connection = serial.Serial(port, baud_rate, timeout=timeout)
@@ -30,6 +32,8 @@ class MorseDriver:
         self._read_thread = threading.Thread(target=self._read_loop, args=())
         self._read_thread.start()
         self._free_slots = 0
+        self._write_lock = threading.Lock()
+        self._write_thread_id = 0
 
         time.sleep(3.0) # Wait for the Arduino to reboot (usual behavior on serial connection)
 
@@ -59,9 +63,10 @@ class MorseDriver:
         temp = text.lower()
         # Replace all whitespace sequences by a space (Morse code doesn't have any other whitespace)
         temp = ' '.join(temp.split())
+        # Remove leading and trailing whitespace
+        temp = temp.strip()
 
-        # Discard previous task
-        data = [MORSE_EXT_CANCEL]
+        data = []
 
         for char in temp:
             ascii_char = ord(char)
@@ -82,27 +87,61 @@ class MorseDriver:
 
         return data
 
+    def cancel_write(self):
+        self._can_send.acquire()
+
+        self._write_thread_id += 1
+        thread_id = self._write_thread_id
+
+        # Wake up write threads that are waiting for response
+        # so that they can exit
+        self._can_send.notifyAll()
+        self._can_send.release()
+
+        return thread_id
+
+    def _check_write_thread_exit(self, write_thread_id):
+        if write_thread_id is not self._write_thread_id:
+            print('killed old serial write thread (id {0})'.format(write_thread_id))
+            return True
+        return False
+
     def send_text(self, text):
-        converted = self._convert_text(text)
-        cur_offset = 0
+        thread_id = self.cancel_write()
 
-        while cur_offset < len(converted):
-            self.connection.write([MORSE_EXT_POLL])
-            print('sent poll')
+        with self._write_lock:
+            print('got write lock (thread id {0})'.format(thread_id))
 
-            self._can_send.acquire()
-            self._can_send.wait()
-            amount = self._free_slots
-            self._can_send.release()
+            # Discard previous task
+            self.connection.reset_output_buffer()
+            self.connection.write([MORSE_EXT_CANCEL])
 
-            print('free slots: ' + str(amount))
-            to_send = converted[cur_offset:cur_offset + amount]
-            cur_offset += amount
+            converted = self._convert_text(text)
+            cur_offset = 0
 
-            print('sent: ' + str(to_send))
-            self.connection.write(to_send)
+            while cur_offset < len(converted):
+                self.connection.write([MORSE_EXT_POLL])
+                print('sent poll (thread id {0})'.format(thread_id))
 
-        print('done sending')
+                self._can_send.acquire()
+                self._can_send.wait()
+
+                # See if newer thread asks to replace this one
+                if self._check_write_thread_exit(thread_id):
+                    self._can_send.release()
+                    return
+
+                amount = self._free_slots
+                self._can_send.release()
+
+                print('free slots: {0} (thread id {1})'.format(str(amount), thread_id))
+                to_send = converted[cur_offset:cur_offset + amount]
+                cur_offset += amount
+
+                print('sent: {0} (thread id {1})'.format(str(to_send), thread_id))
+                self.connection.write(to_send)
+
+            print('done sending (thread id {0})'.format(thread_id))
 
     def debug_read(self):
         while True:

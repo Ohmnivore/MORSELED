@@ -35,5 +35,7 @@ def serve_static(path):
 
 @app.route('/send', methods=['POST'])
 def send_text():
-    driver.send_text(request.json['text'])
+    recvd = request.json['text']
+    print('text received: ' + recvd)
+    driver.send_text(recvd)
     return jsonify(success=True)
