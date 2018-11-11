@@ -1,18 +1,42 @@
 @font-face {
-    font-family: 'King';
-    src: url('King.eot');
-    src: url('King.eot?#iefix') format('embedded-opentype'),
-        url('King.woff2') format('woff2'),
-        url('King.woff') format('woff'),
-        url('King.ttf') format('truetype');
-    font-weight: 500;
+    font-family: 'JMHTypewriterMono';
+    src: url('font/converted/JMHTypewritermono-Regular.ttf');
+    src: url('font/converted/JMHTypewritermono-Regular?#iefix') format('embedded-opentype'),
+        url('font/converted/JMHTypewritermono-Regular.woff2') format('woff2'),
+        url('font/converted/JMHTypewritermono-Regular.woff') format('woff'),
+        url('font/converted/JMHTypewritermono-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'JMHTypewriterMono';
+    src: url('font/converted/JMHTypewritermonoBlack-Regular.ttf');
+    src: url('font/converted/JMHTypewritermonoBlack-Regular?#iefix') format('embedded-opentype'),
+        url('font/converted/JMHTypewritermonoBlack-Regular.woff2') format('woff2'),
+        url('font/converted/JMHTypewritermonoBlack-Regular.woff') format('woff'),
+        url('font/converted/JMHTypewritermonoBlack-Regular.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'JMHTypewriterMonoUnderline';
+    src: url('font/converted/JMHTypewritermonoBlackUnder-Reg.ttf');
+    src: url('font/converted/JMHTypewritermonoBlackUnder-Reg?#iefix') format('embedded-opentype'),
+        url('font/converted/JMHTypewritermonoBlackUnder-Reg.woff2') format('woff2'),
+        url('font/converted/JMHTypewritermonoBlackUnder-Reg.woff') format('woff'),
+        url('font/converted/JMHTypewritermonoBlackUnder-Reg.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
 }
 
 body {
-    font-family: 'King';
+    font-family: 'JMHTypewriterMono';
     text-transform: uppercase;
     text-align: center;
 
+    background: url(its_a_wonderful_life_v2_compressed.png) top center no-repeat;
     background-color: black;
 }
 
@@ -26,6 +50,8 @@ body {
 }
 
 .title {
+    font-family: 'JMHTypewriterMonoUnderline';
+    font-weight: 900;
     text-decoration: underline;
     margin: 0.9em;
     margin-bottom: 1.0em;
@@ -36,23 +62,24 @@ body {
     height: 8em;
     padding: 0.5em;
 
-    font-family: 'King';
+    font-family: 'JMHTypewriterMono';
     font-size: 1em;
     color: black;
     text-transform: uppercase;
     resize: none;
-    border: solid black 2px;
+    border: solid black 4px;
 }
 
 .send-button {
     margin: 2em;
     padding: 0.25em 0.5em;
 
-    font-family: 'King';
+    font-family: 'JMHTypewriterMono';
     font-size: 1.5em;
+    font-weight: 900;
     color: black;
     background-color: white;
-    border: solid black 2px;
+    border: solid black 4px;
 
     cursor: pointer;
 }
@@ -60,5 +87,8 @@ body {
 .send-button:hover, .send-button:focus, .send-button:active {
     color: white;
     background-color: black;
-    border: solid black 2px;
+}
+
+.redacted-doc-wrapper {
+    overflow: hidden;
 }
