@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request, send_from_directory
 import json
 import os
 import signal
@@ -10,6 +10,7 @@ driver = None
 
 @app.before_first_request
 def setup_driver():
+    global driver
     driver = morse_driver.MorseDriver()
 
     SERIAL_PORT_ENV = 'SERIAL_PORT'
@@ -27,6 +28,12 @@ def index():
     return app.send_static_file('index.html')
 
 
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
+
+
 @app.route('/send', methods=['POST'])
 def send_text():
+    driver.send_text(request.json['text'])
     return jsonify(success=True)

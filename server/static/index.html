@@ -1,10 +1,14 @@
 <head>
+    <meta charset="UTF-8">
+    <meta name="MORSELED">
+
+    <link rel="stylesheet" href="static/main.css">
 </head>
 
 <body>
 <script>
 function send() {
-    var textToSend = document.getElementById("text").value;
+    var textToSend = document.getElementById("text-panel").value;
 
     var req = new XMLHttpRequest();
     req.open("POST", '/send', true);
@@ -15,6 +19,12 @@ function send() {
 }
 </script>
 
-    <textarea id="text"></textarea>
-    <button onclick="send()">Send</button>
+    <div class="main-panel">
+        <h1 id="title" class="title">Operation MORSELED</h1>
+
+        <textarea id="text-panel" class="text-panel"></textarea>
+        <br>
+
+        <button class="send-button" onclick="send()">Send</button>
+    </div>
 </body>
