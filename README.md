@@ -51,3 +51,4 @@ TODO
 * Sequential, blocking code for serial communication in driver
 * Multi-user requests queuing + publicly visible task list
 * Prevent send_text buffer overflow (MORSE_EXT_CANCEL and MORSE_EXT_POLL are sent unconditionally)
+* GUI mobile-friendly layout + accessibility
