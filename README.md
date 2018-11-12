@@ -25,30 +25,31 @@ This project contains a web application for sending text to an Arduino device wh
 Practically the Arduino could be a dead-simple client with all logic done on the server. But it's fun if we give the Arduino more autonomy. So the Arduino accepts an ASCII-like character string and translates it into Morse code.
 
 Some over-engineered moments:
-1. The letter to Morse code mapping array is generated using a Python script where the Morse codes are defined in standard notation (. and -). I had previously tried using pre-processor macros and constexpr to do this but I didn't get anywhere.
-2. A letter's Morse code is stored using 8 bits. 0 corresponds to dot and 1 to dash and there's a leading 1 to denote the beginning of the pattern. The leading 1 saves memory (avoids having to store pattern length - the Arduino is quite constrained in the memory department) at the cost of runtime performance. When searching for the leading 1 the first two bits can be skipped at the outset (pattern + leading 1 are 6 bits at most) but I didn't bother implementing this optimization.
-3. It's possible to tell the Arduino to stop the current task (clear buffer) to setup a new task.
+1. The Arduino constructs a "timeline" for the morse patterns to avoid any blocking `delay()` calls. This frees the main loop to do other things.
+2. The letter to Morse code mapping array is generated using a Python script where the Morse codes are defined in standard notation (. and -). I had previously tried using pre-processor macros and constexpr to do this but I didn't get anywhere.
+3. A letter's Morse code is stored using 8 bits. 0 corresponds to dot and 1 to dash and there's a leading 1 to denote the beginning of the pattern. The leading 1 saves memory (avoids having to store pattern length - the Arduino is quite constrained in the memory department) at the cost of runtime performance. When searching for the leading 1 the first two bits can be skipped at the outset (pattern + leading 1 are 6 bits at most) but I didn't bother implementing this optimization.
+4. It's possible to tell the Arduino to stop the current task (clear buffers) to setup a new task.
 
 ### Data transfer
-Data transfer is done using a polling mechanism (driver asks Arduino how much space it has before sending data chunks). It avoids stressing the serial connection (which can get filled up pretty quickly due to multiple `delay()` calls in the Arduino script). It also avoids sending the Arduino more data than it can store in the script's circular buffer.
-
-The driver uses a separate thread for reading from the Arduino which requires coordination between receiving polling results and sending data chunks. It might have been easier if I had used PySerial's blocking calls but I ran into some issues on that side. Ideally I would have written it as blocking, sequential code.
-
-### Blocking main loop
-Currently the main loop halts (with `delay`) the entire program to control the output devices. In the real world it should plan out a timeline of actions at regular intervals instead. This timeline would be checked every loop iteration without perceptibly delaying the loop execution.
+Data transfer is done using a polling mechanism (the driver asks Arduino how much space it has before sending data chunks). This avoids stressing the serial connection and avoids sending the Arduino more data than it can store in its circular buffer.
 
 ## Server
-TODO
+The server contains a Flask app and a driver which communicates with the Arduino.
+
+The app serves static content and has a single endpoint for a POST request which contains text that the Arduino should output. The app performs a sanity check on the content.
+
+The driver has a separate thread for receiving Arduino input (this will come in handy in the future when the Arduino needs to send more varied data). It also handles cancellation of tasks:
+* If a web request comes in while an older one is still being processed then the older one will be cleanly and immediately cancelled
 
 ## Client
-TODO
+The client (in the spirit of a Cold War spy theme) is written in plain HTML/CSS/JS.
+
+It has a cute title intro, client-side input filtering for the text panel, and a "send" button (using XMLHttpRequest).
 
 # Possible improvements
-* GUI indicator of which character is being processed by the Arduino right now
+* GUI indicator of which character the Arduino is outputting right now
 * GUI to set the buzzer volume, LED intensity, Morse code output speed, turn buzzer or LED on/off
-* Use physical switch to also read Morse code from the Arduino
-* Non-blocking main loop on the Arduino
-* Sequential, blocking code for serial communication in driver
+* Use a physical switch to also read Morse code from the Arduino
 * Multi-user requests queuing + publicly visible task list
-* Prevent send_text buffer overflow (MORSE_EXT_CANCEL and MORSE_EXT_POLL are sent unconditionally)
-* GUI mobile-friendly layout + accessibility
+* Prevent possible buffer overflow in driver's send_text function (MORSE_EXT_CANCEL and MORSE_EXT_POLL are sent unconditionally)
+* Make the GUI mobile-friendly layout + accessibility
