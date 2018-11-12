@@ -18,6 +18,24 @@ function send() {
     }));
 }
 
+var ENTER_KEY_CODE = 13;
+function onTextInput(event) {
+    var key = event.keyCode;
+
+    // If the user has pressed enter
+    if (key === ENTER_KEY_CODE) {
+        send();
+
+        // Prevent newline in text area
+        event.preventDefault();
+        return false;
+    }
+    else {
+        return true;
+    }
+}
+
+
 var titleCharIdx = 0;
 var titleBackup = ""
 var titleElement = null;
@@ -58,7 +76,7 @@ window.onload = function() {
     <div class="main-panel">
         <h1 id="title" class="title">Operation MORSELED</h1>
 
-        <textarea id="text-panel" class="text-panel"></textarea>
+        <textarea id="text-panel" class="text-panel" onkeypress="onTextInput(event)"></textarea>
         <br>
 
         <button class="send-button" onclick="send()">Send</button>
